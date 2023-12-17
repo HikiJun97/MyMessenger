@@ -1,0 +1,163 @@
+<html lang="ko">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chat Interface</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css">
+    </link>
+    <style>
+        body {
+            font-family: 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;
+        }
+
+        #imageUpload {
+            display: none;
+        }
+    </style>
+</head>
+
+<body class="bg-gray-100">
+    <div class="flex flex-col justify-between h-screen">
+        <div id="messageWindow" class="p-6 overflow-auto">
+        </div>
+        <!-- Chat input -->
+        <div class="bg-white p-4 flex items-center">
+            <label for="imageUpload" class="text-blue-500 cursor-pointer">
+                <i class="fas fa-plus"></i>
+            </label>
+            <input id="imageUpload" type="file" accept="image/*" />
+            <input id="chatInput" type="text" placeholder="Aa" class="flex-1 mx-4 border-none focus:ring-0" />
+            <button id="sendButton" class="bg-blue-500 text-white rounded-full px-4 py-2 ml-2">
+                Send
+            </button>
+        </div>
+    </div>
+
+    <script>
+		var socket
+		
+		window.onload = function(){
+			var room_id = prompt("방 ID 입력해라:", "");
+			if (room_id != null && room_id != ""){
+				console.log("room_id: " + room_id);
+			}
+			var client_id = prompt("니 ID 입력해라:", "");
+			if (client_id != null && client_id != ""){
+				console.log("client_id: " + client_id);
+			}
+			initializeWebSocket(room_id, client_id)
+		}
+
+		function initializeWebSocket(room_id, client_id){
+			const host = window.location.host;
+			socket = new WebSocket('ws://' + host + '/' + room_id);
+			console.log("host: " + host)
+			console.log("room_id: " + room_id)
+	        // Connection opened
+	        socket.onopen = function(event) {
+	            console.log('Connection opened', event);
+				socket.send(client_id)
+	        };
+	    
+	        // Listen for messages
+	        socket.onmessage = function(event) {
+	            console.log('Message from server', event.data);
+	            displayMessage(event.data, 'left');
+	        };
+	    
+	        // Listen for possible errors
+	        socket.onerror = function(event) {
+	            console.error('WebSocket Error', event);
+	        };
+	    
+	        // Connection closed
+	        socket.onclose = function(event) {
+	            console.log('Connection closed', event);
+	        };
+		}
+
+        // Simulated WebSocket object
+        // var socket = new WebSocket('ws://minirecord.iptime.org:8001/chat/');
+
+
+		document.getElementById('sendButton').addEventListener('click', function(client_id){
+			sendMessage(client_id)
+		});
+        document.getElementById('chatInput').addEventListener('keypress', function (event, client_id) {
+            if (event.key === 'Enter') {
+                sendMessage(client_id);
+            }
+        });
+
+        document.getElementById('imageUpload').addEventListener('change', function (event) {
+            var file = event.target.files[0];
+            if (file) {
+                var reader = new FileReader();
+                reader.onload = function (e) {
+                    sendMessage(e.target.result); // Send the image
+                };
+                reader.readAsDataURL(file); // Read the file as a Data URL
+            }
+        });
+
+        function sendMessage(client_id) {
+            var input = document.getElementById('chatInput');
+            var message = input.value.trim(); // 입력 필드에서 텍스트를 가져옴
+            var fileInput = document.getElementById('imageUpload');
+            var file = fileInput.files[0]; // 이미지 입력 필드에서 파일을 가져옴
+        
+            if (file) {
+                // 이미지 파일이 존재하는 경우
+                var reader = new FileReader();
+                reader.onload = function(e) {
+                    var imageUrl = e.target.result;
+                    var data = {'client_id': client_id, 'image': imageUrl};
+                    socket.send(JSON.stringify(data)); // 이미지 데이터 전송
+                    displayMessage(message, 'right', imageUrl); // 화면에 이미지 표시
+                };
+                reader.readAsDataURL(file); // 파일을 Data URL로 읽음
+            } else if (message) {
+                // 텍스트 메시지가 있는 경우
+                var data = {'client_id': client_id, 'text': message};
+                socket.send(JSON.stringify(data)); // 텍스트 메시지 전송
+                displayMessage(message, 'right'); // 화면에 텍스트 메시지 표시
+            }
+        
+            input.value = ''; // 텍스트 입력창 비우기
+            fileInput.value = ''; // 이미지 입력창 비우기 (다음 업로드를 위해)
+        }
+        
+        function receiveMessage(message) {
+            displayMessage(message, 'left'); // Display the message on the left
+        }
+
+        function displayMessage(message, side, imageUrl) {
+            var messageWindow = document.getElementById('messageWindow');
+            var messageBubble = document.createElement('div');
+            var bubbleColor = side === 'right' ? 'bg-blue-500 text-white' : 'bg-white shadow';
+            messageBubble.className = `flex items-end ${side === 'right' ? 'justify-end' : 'justify-start'} mt-4`;
+            if (imageUrl) {
+                messageBubble.innerHTML = `
+                    <div class="${bubbleColor} text-sm rounded-lg p-2 max-w-xs lg:max-w-md">
+                        <img src="${imageUrl}" alt="Uploaded Image" class="max-w-full h-auto rounded" />
+                    </div>
+                `;
+            } else {
+                messageBubble.innerHTML = `
+                    <div class="${bubbleColor} text-sm rounded-lg p-2 max-w-xs lg:max-w-md">
+                        <p>${message}</p>
+                    </div>
+                `;
+            }
+            messageWindow.appendChild(messageBubble);
+            messageWindow.scrollTop = messageWindow.scrollHeight; // 스크롤 하단으로
+        }
+        
+
+        // Simulate receiving a message from the server
+        // socket.onmessage();
+    </script>
+</body>
+</html>

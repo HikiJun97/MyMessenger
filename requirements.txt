@@ -1,0 +1,6 @@
+accelerate==0.25.0
+aiohttp==3.9.1
+bitsandbytes==0.41.2.post2
+transformers==4.35.2
+Pillow==10.1.0
+openai==0.28
